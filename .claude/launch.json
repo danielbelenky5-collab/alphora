@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "financepro",
+      "runtimeExecutable": "C:/Program Files/nodejs/node.exe",
+      "runtimeArgs": ["--max-http-header-size=65536", "node_modules/vite/bin/vite.js", "--port", "5174"],
+      "port": 5174,
+      "autoPort": false
+    }
+  ]
+}

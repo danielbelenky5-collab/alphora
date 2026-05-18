@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+/* ── Theme: Dark (default) ─────────────────────────────────────────────────── */
+:root, .dark {
+  --surface-bg:     #0d1117;
+  --surface-card:   #161b22;
+  --surface-border: #21262d;
+  --surface-hover:  #1c2128;
+
+  --tx-primary:   #e6edf3;
+  --tx-secondary: #c9d1d9;
+  --tx-muted:     #8b949e;
+
+  --chart-bg:       #161b22;
+  --chart-grid:     #21262d;
+  --chart-text:     #8b949e;
+}
+
+/* ── Theme: Light ──────────────────────────────────────────────────────────── */
+.light {
+  --surface-bg:     #f6f8fa;
+  --surface-card:   #ffffff;
+  --surface-border: #d0d7de;
+  --surface-hover:  #eaeef2;
+
+  --tx-primary:   #1c2128;
+  --tx-secondary: #24292f;
+  --tx-muted:     #57606a;
+
+  --chart-bg:       #ffffff;
+  --chart-grid:     #e1e4e8;
+  --chart-text:     #57606a;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--surface-bg);
+    color: var(--tx-primary);
+    font-family: 'Inter', 'Heebo', sans-serif;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  [lang="he"], [dir="rtl"], .font-he {
+    font-family: 'Heebo', sans-serif;
+  }
+}
+
+/* ── Components ────────────────────────────────────────────────────────────── */
+@layer components {
+  .card {
+    @apply bg-surface-card border border-surface-border rounded-xl;
+  }
+
+  .btn-primary {
+    @apply bg-brand-500 hover:bg-brand-600 text-white font-medium px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-ghost {
+    @apply px-3 py-1.5 rounded-lg transition-colors;
+    color: var(--tx-secondary);
+  }
+  .btn-ghost:hover {
+    background-color: var(--surface-hover);
+    color: var(--tx-primary);
+  }
+
+  .btn-icon {
+    @apply p-2 rounded-lg transition-colors;
+    color: var(--tx-muted);
+  }
+  .btn-icon:hover {
+    background-color: var(--surface-hover);
+    color: var(--tx-primary);
+  }
+
+  .period-tab {
+    @apply px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer;
+  }
+
+  .period-tab-active {
+    @apply bg-brand-500 text-white;
+  }
+
+  .period-tab-inactive {
+    color: var(--tx-muted);
+  }
+  .period-tab-inactive:hover {
+    color: var(--tx-primary);
+    background-color: var(--surface-hover);
+  }
+
+  .skeleton {
+    @apply animate-pulse bg-surface-border rounded;
+  }
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface-bg); }
+::-webkit-scrollbar-thumb { background: var(--surface-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tx-muted); }
