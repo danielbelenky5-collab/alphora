@@ -26,9 +26,9 @@ const DOWN     = '#e53935'
 const BB_COLOR = '#64748b'
 
 const DEFAULT_MAS = [
-  { key: 'ma20',  label: 'MA20',  period: 20,  color: '#f59e0b', enabled: true  },
-  { key: 'ma50',  label: 'MA50',  period: 50,  color: '#8b5cf6', enabled: false },
-  { key: 'ma200', label: 'MA200', period: 200, color: '#06b6d4', enabled: false },
+  { key: 'ma20',  label: 'MA20',  period: 20,  color: '#f59e0b', enabled: true,  type: 'SMA' },
+  { key: 'ma50',  label: 'MA50',  period: 50,  color: '#8b5cf6', enabled: false, type: 'SMA' },
+  { key: 'ma200', label: 'MA200', period: 200, color: '#06b6d4', enabled: false, type: 'SMA' },
 ]
 
 // ─── Pill Button ──────────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ export default function IndicatorPanel({ candles, symbol, isDark, onOverlayChang
   const maData = useMemo(() => {
     if (!candles?.length) return {}
     return Object.fromEntries(
-      mas.map((m) => [m.key, calcSMA(candles, m.period)])
+      mas.map((m) => [m.key, m.type === 'EMA' ? calcEMA(candles, m.period) : calcSMA(candles, m.period)])
     )
   }, [candles, mas])
 
@@ -170,7 +170,7 @@ export default function IndicatorPanel({ candles, symbol, isDark, onOverlayChang
       mas.forEach((m) => {
         if (m.enabled && maData[m.key]?.length) {
           series.push({
-            name:  m.label,
+            name:  `${m.type} ${m.period}`,
             type:  'line',
             data:  maData[m.key],
             color: m.color,
@@ -423,8 +423,28 @@ export default function IndicatorPanel({ candles, symbol, isDark, onOverlayChang
             <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               {/* Enabled toggle */}
               <PillBtn active={m.enabled} onClick={() => updateMa(m.key, 'enabled', !m.enabled)} isDark={isDark}>
-                {m.label}
+                {`${m.type}${m.period}`}
               </PillBtn>
+
+              {/* SMA / EMA type switch */}
+              <button
+                onClick={() => updateMa(m.key, 'type', m.type === 'SMA' ? 'EMA' : 'SMA')}
+                title="Switch SMA / EMA"
+                style={{
+                  padding:      '2px 6px',
+                  fontSize:     '10px',
+                  fontWeight:   700,
+                  borderRadius: '4px',
+                  border:       `1px solid ${t.border}`,
+                  cursor:       'pointer',
+                  background:   m.type === 'EMA' ? '#06b6d4' : t.card,
+                  color:        m.type === 'EMA' ? '#ffffff' : t.muted,
+                  minWidth:     '34px',
+                  transition:   'background 0.15s, color 0.15s',
+                }}
+              >
+                {m.type}
+              </button>
 
               {/* Color picker */}
               <input

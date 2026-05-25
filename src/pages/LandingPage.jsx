@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Logo from '../components/layout/Logo'
 import SearchBar from '../components/layout/SearchBar'
 import MarketIndicator from '../components/landing/MarketIndicator'
+import TopMoversCard   from '../components/landing/TopMoversCard'
 
 import RegisterModal from '../components/auth/RegisterModal'
 import ForgotPasswordModal from '../components/auth/ForgotPasswordModal'
@@ -207,6 +208,9 @@ export default function LandingPage() {
           />
         ))}
       </div>
+
+      {/* Top movers (gainers / losers / most active) */}
+      <TopMoversCard />
 
       {/* Footer */}
       <p className="absolute bottom-6 text-xs text-tx-muted">
