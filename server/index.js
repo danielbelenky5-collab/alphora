@@ -36,7 +36,7 @@ app.use((req, res, next) => {
   next()
 })
 
-// ── FIX 2: CORS — restrict to localhost only ─────────────────────────────────
+// ── FIX 2: CORS — allow localhost + Render production domains ────────────────
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:5174',
@@ -44,10 +44,17 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5174',
   'http://127.0.0.1:5173',
 ]
+// Allow any *.onrender.com subdomain (covers alphora-app.onrender.com + custom domains)
+const ALLOWED_PATTERN = /^https:\/\/[a-z0-9-]+\.onrender\.com$/
+// Allow explicit SITE_URL from env (e.g. custom domain like alphora.com)
+const SITE_URL = process.env.SITE_URL || ''
+
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true)
+    if (!origin) return cb(null, true)  // mobile apps, curl, Postman
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true)
+    if (ALLOWED_PATTERN.test(origin)) return cb(null, true)
+    if (SITE_URL && origin === SITE_URL) return cb(null, true)
     cb(new Error(`CORS blocked: ${origin}`))
   },
   credentials: false,
@@ -105,4 +112,22 @@ if (process.env.NODE_ENV === 'production') {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
+
+  // ── Keep-alive: ping self every 10 min to prevent Render free tier spin-down ──
+  // Only runs in production to avoid noise in local dev
+  if (process.env.NODE_ENV === 'production' && SITE_URL) {
+    const PING_INTERVAL = 10 * 60 * 1000  // 10 minutes
+    setInterval(async () => {
+      try {
+        const { default: https } = await import('https')
+        const apiHost = process.env.RENDER_SERVICE_NAME
+          ? `${process.env.RENDER_SERVICE_NAME}.onrender.com`
+          : new URL(SITE_URL).hostname
+        https.get(`https://${apiHost}/api/health`, (r) => {
+          console.log(`[keep-alive] ping → ${r.statusCode}`)
+        }).on('error', () => {})
+      } catch {}
+    }, PING_INTERVAL)
+    console.log('[keep-alive] Self-ping enabled every 10 min')
+  }
 })
