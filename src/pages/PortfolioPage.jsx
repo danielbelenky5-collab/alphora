@@ -4,8 +4,26 @@ import { useQuery } from '@tanstack/react-query'
 import TopBar from '../components/layout/TopBar'
 import PortfolioVsSpyChart from '../components/portfolio/PortfolioVsSpyChart'
 import { useApp } from '../contexts/AppContext'
+import { useAuth } from '../contexts/AuthContext'
 import { exportPositionsCsv } from '../utils/exportCsv'
 import client from '../api/client'
+
+// ── API helper (server-side persistence) ──────────────────────────────────────
+const TOKEN_KEY = 'alphora_token'
+function apiFetch(path, options = {}) {
+  const base  = import.meta.env.VITE_API_URL
+    ? `https://${import.meta.env.VITE_API_URL}/api`
+    : '/api'
+  const token = localStorage.getItem(TOKEN_KEY)
+  return fetch(`${base}/user${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  }).then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
+}
 
 // ── Storage ────────────────────────────────────────────────────────────────────
 const PORTFOLIOS_KEY = 'alphora_portfolios_v1'
@@ -967,6 +985,8 @@ function AnnualSummary({ positions, year, isDark, isHe }) {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function PortfolioPage() {
   const { theme, lang } = useApp()
+  const { user }        = useAuth()
+  const isLoggedIn      = !!user
   const isDark = theme === 'dark'
   const isHe   = lang  === 'he'
   const C = mkC(isDark)
@@ -994,6 +1014,20 @@ export default function PortfolioPage() {
   const [viewYear,  setViewYear]  = useState(new Date().getFullYear())
   const [tab,       setTab]       = useState('trades')
 
+  // ── Load from server when logged in ──────────────────────────────────────────
+  useEffect(() => {
+    if (!isLoggedIn) { setPortfolios(loadPortfolios()); return }
+    apiFetch('/portfolio')
+      .then(data => {
+        if (!data.portfolios?.length) return
+        setPortfolios({
+          active: data.active || data.portfolios[0].id,
+          portfolios: data.portfolios.map(pf => ({ id: pf.id, name: pf.name, positions: pf.positions })),
+        })
+      })
+      .catch(() => setPortfolios(loadPortfolios()))
+  }, [isLoggedIn]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Persist helpers ──────────────────────────────────────────────────────────
   function persistPos(d) {
     const updated = {
@@ -1003,7 +1037,7 @@ export default function PortfolioPage() {
       ),
     }
     setPortfolios(updated)
-    savePortfolios(updated)
+    if (!isLoggedIn) savePortfolios(updated)
   }
   function persistWL(d)  { setWatchlist(d); saveWatchlist(d) }
 
@@ -1011,15 +1045,21 @@ export default function PortfolioPage() {
   function addPortfolio(name) {
     const id = uid()
     const updated = { ...portfolios, active: id, portfolios: [...portfolios.portfolios, { id, name, positions: [] }] }
-    setPortfolios(updated); savePortfolios(updated)
+    setPortfolios(updated)
+    if (!isLoggedIn) { savePortfolios(updated); return }
+    apiFetch('/portfolio/list', { method: 'POST', body: JSON.stringify({ portfolioId: id, portfolioName: name }) }).catch(() => {})
   }
   function switchPortfolio(id) {
     const updated = { ...portfolios, active: id }
-    setPortfolios(updated); savePortfolios(updated)
+    setPortfolios(updated)
+    if (!isLoggedIn) savePortfolios(updated)
   }
   function renamePortfolio(id, name) {
     const updated = { ...portfolios, portfolios: portfolios.portfolios.map(p => p.id === id ? { ...p, name } : p) }
-    setPortfolios(updated); savePortfolios(updated)
+    setPortfolios(updated)
+    if (!isLoggedIn) { savePortfolios(updated) } else {
+      apiFetch(`/portfolio/list/${id}/name`, { method: 'PUT', body: JSON.stringify({ portfolioName: name }) }).catch(() => {})
+    }
     setPfNameEdit(null)
   }
   function deletePortfolio(id) {
@@ -1027,20 +1067,44 @@ export default function PortfolioPage() {
     const remaining = portfolios.portfolios.filter(p => p.id !== id)
     const newActive = id === activeId ? remaining[0].id : activeId
     const updated = { active: newActive, portfolios: remaining }
-    setPortfolios(updated); savePortfolios(updated)
+    setPortfolios(updated)
+    if (!isLoggedIn) { savePortfolios(updated) } else {
+      apiFetch(`/portfolio/list/${id}`, { method: 'DELETE' }).catch(() => {})
+    }
   }
 
   // ── Positions CRUD ───────────────────────────────────────────────────────────
-  function handlePosSave(form) {
+  async function handlePosSave(form) {
     if (posModal.mode === 'add') {
-      persistPos({ ...posData, positions: [...posData.positions, { ...form, id: uid() }] })
+      const newPos = { ...form, id: uid() }
+      if (isLoggedIn) {
+        try {
+          const data = await apiFetch('/portfolio/position', {
+            method: 'POST',
+            body: JSON.stringify({ portfolioId: activeId, portfolioName: activePf?.name || 'ראשי', position: newPos }),
+          })
+          newPos._dbId = data.id
+        } catch {}
+      }
+      persistPos({ ...posData, positions: [...posData.positions, newPos] })
     } else {
-      persistPos({ ...posData, positions: posData.positions.map(p => p.id === posModal.initial.id ? { ...p, ...form, id: p.id } : p) })
+      const updated = { ...posModal.initial, ...form, id: posModal.initial.id, _dbId: posModal.initial._dbId }
+      if (isLoggedIn && updated._dbId) {
+        apiFetch(`/portfolio/position/${updated._dbId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ position: updated }),
+        }).catch(() => {})
+      }
+      persistPos({ ...posData, positions: posData.positions.map(p => p.id === posModal.initial.id ? updated : p) })
     }
     setPosModal(null)
   }
   function handlePosDelete(id) {
     if (!window.confirm(isHe ? 'למחוק פוזיציה זו?' : 'Delete this position?')) return
+    const pos = posData.positions.find(p => p.id === id)
+    if (isLoggedIn && pos?._dbId) {
+      apiFetch(`/portfolio/position/${pos._dbId}`, { method: 'DELETE' }).catch(() => {})
+    }
     persistPos({ ...posData, positions: posData.positions.filter(p => p.id !== id) })
   }
   function handleAddSell(pos) {

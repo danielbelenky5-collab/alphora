@@ -17,6 +17,7 @@ import calendarRouter    from './routes/calendar.js'
 import translateRouter   from './routes/translate.js'
 import newsRouter        from './routes/news.js'
 import authRouter        from './routes/auth.js'
+import userDataRouter    from './routes/userData.js'
 import econCalendarRouter   from './routes/econCalendar.js'
 import earningsRouter       from './routes/earningsReports.js'
 import screenerRouter       from './routes/screener.js'
@@ -97,6 +98,7 @@ app.use('/api/calendar',     calendarRouter)      // exchange validation inside 
 app.use('/api/translate',    translateRouter)
 app.use('/api/news',         newsRouter)
 app.use('/api/auth',         authRateLimit, authRouter)   // rate limited
+app.use('/api/user',         userDataRouter)
 app.use('/api/econ-calendar',    econCalendarRouter)
 app.use('/api/earnings-reports', earningsRouter)
 app.use('/api/screener',         screenerRouter)

@@ -1,36 +1,96 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '../../contexts/AppContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 const STORAGE_KEY = 'journal_events'
-function loadEvents() {
+const TOKEN_KEY   = 'alphora_token'
+
+// ── API helper ────────────────────────────────────────────────────────────────
+function apiFetch(path, options = {}) {
+  const base  = import.meta.env.VITE_API_URL
+    ? `https://${import.meta.env.VITE_API_URL}/api`
+    : '/api'
+  const token = localStorage.getItem(TOKEN_KEY)
+  return fetch(`${base}/user${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  }).then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
+}
+
+// ── localStorage fallback ─────────────────────────────────────────────────────
+function loadLocal() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
 }
-function saveEvents(events) {
+function saveLocal(events) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(events))
 }
 
 export default function JournalEventForm() {
-  const { t } = useApp()
-  const [events, setEvents] = useState(loadEvents)
-  const [date, setDate] = useState('')
-  const [note, setNote] = useState('')
+  const { t }        = useApp()
+  const { user }     = useAuth()
+  const isLoggedIn   = !!user
 
-  function handleAdd(e) {
+  const [events, setEvents] = useState([])
+  const [date,   setDate]   = useState('')
+  const [note,   setNote]   = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // ── Load events ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setEvents(loadLocal())
+      return
+    }
+    apiFetch('/journal')
+      .then(data => setEvents((data.events || []).sort((a, b) => a.date.localeCompare(b.date))))
+      .catch(() => setEvents(loadLocal()))
+  }, [isLoggedIn])
+
+  // ── Add event ───────────────────────────────────────────────────────────────
+  const handleAdd = useCallback(async (e) => {
     e.preventDefault()
     if (!date || !note.trim()) return
-    const next = [...events, { id: Date.now(), date, note: note.trim() }]
-      .sort((a, b) => a.date.localeCompare(b.date))
-    setEvents(next)
-    saveEvents(next)
-    setNote('')
-    setDate('')
-  }
+    setSaving(true)
 
-  function handleDelete(id) {
-    const next = events.filter(ev => ev.id !== id)
-    setEvents(next)
-    saveEvents(next)
-  }
+    if (!isLoggedIn) {
+      const next = [...events, { id: Date.now(), date, note: note.trim() }]
+        .sort((a, b) => a.date.localeCompare(b.date))
+      setEvents(next)
+      saveLocal(next)
+      setNote('')
+      setDate('')
+      setSaving(false)
+      return
+    }
+
+    try {
+      const data = await apiFetch('/journal', {
+        method: 'POST',
+        body: JSON.stringify({ date, note: note.trim() }),
+      })
+      setEvents(prev => [...prev, { id: data.id, date, note: note.trim() }]
+        .sort((a, b) => a.date.localeCompare(b.date)))
+      setNote('')
+      setDate('')
+    } catch {}
+    setSaving(false)
+  }, [date, note, events, isLoggedIn])
+
+  // ── Delete event ────────────────────────────────────────────────────────────
+  const handleDelete = useCallback((id) => {
+    setEvents(prev => {
+      const next = prev.filter(ev => ev.id !== id)
+      if (!isLoggedIn) saveLocal(next)
+      return next
+    })
+    if (isLoggedIn) {
+      apiFetch(`/journal/${id}`, { method: 'DELETE' }).catch(() => {})
+    }
+  }, [isLoggedIn])
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,8 +114,8 @@ export default function JournalEventForm() {
               className="flex-1 bg-surface border border-surface-border rounded-lg px-3 py-2 text-sm text-tx-primary placeholder-tx-muted outline-none focus:border-brand-500 font-heebo min-w-[180px]"
             />
           </div>
-          <button type="submit" className="btn-primary text-sm self-start font-heebo">
-            {t('save')}
+          <button type="submit" disabled={saving} className="btn-primary text-sm self-start font-heebo disabled:opacity-60">
+            {saving ? '...' : t('save')}
           </button>
         </form>
       </div>

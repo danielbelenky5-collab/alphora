@@ -51,6 +51,35 @@ async function buildPostgresAdapter() {
       is_admin             INTEGER NOT NULL DEFAULT 0,
       created_at           BIGINT  NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
     );
+
+    CREATE TABLE IF NOT EXISTS watchlist_items (
+      id          SERIAL PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      list_index  INTEGER NOT NULL DEFAULT 0,
+      list_name   TEXT    NOT NULL DEFAULT 'רשימה 1',
+      symbol      TEXT    NOT NULL,
+      position    INTEGER NOT NULL DEFAULT 0,
+      created_at  BIGINT  NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+      UNIQUE(user_id, list_index, symbol)
+    );
+
+    CREATE TABLE IF NOT EXISTS portfolio_positions (
+      id             SERIAL PRIMARY KEY,
+      user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      portfolio_id   TEXT    NOT NULL DEFAULT 'main',
+      portfolio_name TEXT    NOT NULL DEFAULT 'ראשי',
+      data           TEXT    NOT NULL,
+      created_at     BIGINT  NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+      updated_at     BIGINT  NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+    );
+
+    CREATE TABLE IF NOT EXISTS journal_events (
+      id          SERIAL PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date        TEXT    NOT NULL,
+      note        TEXT    NOT NULL,
+      created_at  BIGINT  NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+    );
   `)
 
   // First registered user is always admin
@@ -107,6 +136,35 @@ function buildSqliteAdapter() {
       reset_token_expires  INTEGER,
       is_admin             INTEGER NOT NULL DEFAULT 0,
       created_at           INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS watchlist_items (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      list_index  INTEGER NOT NULL DEFAULT 0,
+      list_name   TEXT    NOT NULL DEFAULT 'רשימה 1',
+      symbol      TEXT    NOT NULL,
+      position    INTEGER NOT NULL DEFAULT 0,
+      created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+      UNIQUE(user_id, list_index, symbol)
+    );
+
+    CREATE TABLE IF NOT EXISTS portfolio_positions (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      portfolio_id TEXT   NOT NULL DEFAULT 'main',
+      portfolio_name TEXT NOT NULL DEFAULT 'ראשי',
+      data        TEXT    NOT NULL,
+      created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+      updated_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS journal_events (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date        TEXT    NOT NULL,
+      note        TEXT    NOT NULL,
+      created_at  INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
     );
   `)
 

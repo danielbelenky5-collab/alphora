@@ -11,7 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'alphora_dev_secret_change_in_produ
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genToken() { return crypto.randomBytes(32).toString('hex') }
 
-function requireAuth(req, res, next) {
+export function requireAuth(req, res, next) {
   const auth = req.headers.authorization
   if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' })
   try { req.user = jwt.verify(auth.slice(7), JWT_SECRET); next() }
