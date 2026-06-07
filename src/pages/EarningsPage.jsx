@@ -205,7 +205,8 @@ export default function EarningsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey:  ['earnings-reports', weekStart],
     queryFn:   () => axios.get(`/api/earnings-reports?week=${weekStart}`).then(r => r.data),
-    staleTime: 30 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
     retry: 2,
   })
 

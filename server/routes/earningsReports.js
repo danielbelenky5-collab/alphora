@@ -3,7 +3,7 @@ import NodeCache from 'node-cache'
 import { execFile } from 'child_process'
 
 const router = Router()
-const cache  = new NodeCache({ stdTTL: 1800 }) // 30 min
+const cache  = new NodeCache({ stdTTL: 300 }) // 5 min
 
 const CURL_EXE = process.platform === 'win32'
   ? 'C:\\Windows\\System32\\curl.exe'

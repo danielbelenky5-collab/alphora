@@ -3,7 +3,7 @@ import { execFile } from 'child_process'
 import NodeCache from 'node-cache'
 
 const router = Router()
-const cache  = new NodeCache({ stdTTL: 300 })
+const cache  = new NodeCache({ stdTTL: 90 })
 const CURL   = process.platform === 'win32' ? 'C:\\Windows\\System32\\curl.exe' : 'curl'
 
 function curlGet(url) {
@@ -37,7 +37,7 @@ function parseRSS(xml, sourceName) {
   const items = []
   const re = /<item[^>]*>([\s\S]*?)<\/item>/gi
   let m
-  while ((m = re.exec(xml)) !== null && items.length < 15) {
+  while ((m = re.exec(xml)) !== null && items.length < 25) {
     const content = m[1]
     const title = extractTag(content, 'title')
     if (!title) continue

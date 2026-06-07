@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import TopBar from '../components/layout/TopBar'
 import { useApp } from '../contexts/AppContext'
@@ -63,6 +63,12 @@ export default function NewsPage() {
   const [symbolFilter,  setSymbolFilter]  = useState('')
   const [activeSector,  setActiveSector]  = useState(null)
   const [xOpen,         setXOpen]         = useState(false)
+  const [newCount,      setNewCount]      = useState(0)
+  const [lastUpdated,   setLastUpdated]   = useState(null)
+  const [displayNews,   setDisplayNews]   = useState([])
+  const seenLinks   = useRef(new Set())
+  const feedTopRef  = useRef(null)
+  const isFirstLoad = useRef(true)
 
   const handleSectorClick = (sector) => {
     if (activeSector === sector.symbol) {
@@ -87,12 +93,45 @@ export default function NewsPage() {
     prev.includes(src) ? (prev.length > 1 ? prev.filter(s => s !== src) : prev) : [...prev, src]
   )
 
-  const { data: news = [], isLoading: newsLoading, refetch } = useQuery({
+  const { data: news = [], isLoading: newsLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ['news', activeSources.join(','), symbolFilter],
     queryFn:  () => client.get(`/news?sources=${activeSources.join(',')}&symbol=${symbolFilter.toUpperCase()}`),
-    staleTime: 120000,
-    refetchInterval: 300000,
+    staleTime: 30000,
+    refetchInterval: 60000,
   })
+
+  // Detect new articles on every fetch
+  useEffect(() => {
+    if (!news.length) return
+    if (isFirstLoad.current) {
+      // First load: populate seen set and show immediately
+      news.forEach(a => seenLinks.current.add(a.link))
+      setDisplayNews(news)
+      setLastUpdated(new Date())
+      isFirstLoad.current = false
+      return
+    }
+    const fresh = news.filter(a => !seenLinks.current.has(a.link))
+    if (fresh.length > 0) {
+      fresh.forEach(a => seenLinks.current.add(a.link))
+      setNewCount(n => n + fresh.length)
+    }
+    setLastUpdated(new Date())
+  }, [news, dataUpdatedAt]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset seen set when filters change
+  useEffect(() => {
+    seenLinks.current = new Set()
+    isFirstLoad.current = true
+    setNewCount(0)
+    setDisplayNews([])
+  }, [activeSources.join(','), symbolFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function showNewArticles() {
+    setDisplayNews(news)
+    setNewCount(0)
+    feedTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const { data: calendar = [], isLoading: calLoading } = useQuery({
     queryKey: ['eco-calendar'],
@@ -118,16 +157,40 @@ export default function NewsPage() {
 
         {/* Page title */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: C.text, fontFamily: 'Inter, sans-serif', margin: 0 }}>
-            {isHe ? '📰 חדשות שוק' : '📰 Market News'}
-          </h1>
+          <div>
+            <h1 style={{ fontSize: '20px', fontWeight: 700, color: C.text, fontFamily: 'Inter, sans-serif', margin: 0 }}>
+              {isHe ? '📰 חדשות שוק' : '📰 Market News'}
+            </h1>
+            {lastUpdated && (
+              <span style={{ fontSize: '11px', color: C.muted, fontFamily: 'Inter, sans-serif' }}>
+                {isHe ? `עודכן: ${lastUpdated.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : `Updated: ${lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}
+                {' · '}{isHe ? 'מתרענן כל דקה' : 'auto-refreshes every minute'}
+              </span>
+            )}
+          </div>
           <button
-            onClick={() => refetch()}
+            onClick={() => { refetch(); seenLinks.current = new Set(); isFirstLoad.current = true; setNewCount(0); setDisplayNews([]) }}
             style={{ padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, border: `1px solid ${C.border}`, background: C.card, color: C.accent, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
           >
-            {isHe ? '⟳ רענן' : '⟳ Refresh'}
+            {isHe ? '⟳ רענן עכשיו' : '⟳ Refresh now'}
           </button>
         </div>
+
+        {/* New-articles banner */}
+        {newCount > 0 && (
+          <button
+            onClick={showNewArticles}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+              background: 'linear-gradient(135deg, #3b6ff5, #06b6d4)',
+              color: '#fff', fontFamily: 'Heebo, sans-serif', fontWeight: 700, fontSize: '14px',
+              boxShadow: '0 4px 16px rgba(59,111,245,0.35)', animation: 'pulse 2s infinite',
+            }}
+          >
+            🔔 {newCount} {isHe ? `חדשות חדשות — לחץ לראות` : `new articles — click to view`}
+          </button>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: '20px', alignItems: 'start' }}
           className="news-grid">
@@ -238,19 +301,21 @@ export default function NewsPage() {
             </div>
 
             {/* News articles */}
-            {newsLoading
+            <div ref={feedTopRef} />
+            {newsLoading && displayNews.length === 0
               ? Array.from({ length: 5 }, (_, i) => <SkeletonCard key={i} C={C} />)
-              : news.length === 0
+              : displayNews.length === 0
                 ? (
                   <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '10px', padding: '32px', textAlign: 'center', color: C.muted, fontFamily: 'Heebo, sans-serif' }}>
                     {isHe ? 'לא נמצאו חדשות' : 'No news found'}
                   </div>
                 )
-                : news.map((item, i) => {
+                : displayNews.map((item, i) => {
                   const src = SOURCE_META[item.source] || { label: item.source, color: '#6B7280' }
+                  const isNew = i < (news.length - displayNews.length + (news.length > displayNews.length ? 0 : 0))
                   return (
                     <a
-                      key={i}
+                      key={item.link || i}
                       href={item.link}
                       target="_blank"
                       rel="noopener noreferrer"
