@@ -13,6 +13,7 @@
     "jsonwebtoken": "^9.0.3",
     "node-cache": "^5.1.2",
     "nodemailer": "^8.0.10",
+    "pg": "^8.21.0",
     "yahoo-finance2": "^2.9.0"
   }
 }
