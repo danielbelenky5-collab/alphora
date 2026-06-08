@@ -44,6 +44,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://127.0.0.1:5174',
   'http://127.0.0.1:5173',
+  'https://alphora-three.vercel.app',
 ]
 // Allow any *.onrender.com subdomain (covers alphora-app.onrender.com + custom domains)
 const ALLOWED_PATTERN = /^https:\/\/[a-z0-9-]+\.onrender\.com$/
