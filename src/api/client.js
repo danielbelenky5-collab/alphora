@@ -2,9 +2,7 @@ import axios from 'axios'
 
 // In production (Render), VITE_API_URL is the API service host (e.g. alphora-api.onrender.com)
 // In development, use relative /api (proxied by Vite)
-const apiBase = import.meta.env.VITE_API_URL
-  ? `https://${import.meta.env.VITE_API_URL}/api`
-  : '/api'
+const apiBase = 'https://alphora-api-4o2q.onrender.com/api'
 
 const client = axios.create({
   baseURL: apiBase,
